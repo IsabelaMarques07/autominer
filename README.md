@@ -107,6 +107,9 @@ If the word is not found (or the dictionary returns 404), the definition field w
 
 ## 🔮 Future Improvements (Roadmap)
 
+-[ ] **Export to Anki**: generate a file compatible with Anki for easy import of flashcards.
+
+
 -[ ] **Implement Cache (Redis/Caffeine):** Store previously mined words in a database to avoid repeated requests to Cambridge (performance improvement).
 
 
