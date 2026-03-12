@@ -22,4 +22,7 @@ public class Sentence {
 
     @JsonProperty
     private String selectedDef;
+
+    @JsonProperty
+    private List<String> imageMeaningUrl;
 }

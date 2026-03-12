@@ -2,6 +2,8 @@ package com.isamarques.autominer.client;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -24,5 +26,15 @@ public class CambridgeScraper {
         } else {
             return null;
         }
+    }
+
+    public String fetchImageUrls(String word) throws IOException{
+        Document doc = Jsoup.connect(URL_BASE + word)
+                .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+                .header("Accept-Language", "en-US,en;q=0.5")
+                .get();
+
+        String url = doc.select(".dimg_i").getFirst().absUrl("src");
+        return url;
     }
 }
