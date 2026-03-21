@@ -1,82 +1,78 @@
 package com.isamarques.autominer.service;
 
-import com.isamarques.autominer.client.CambridgeScraper;
+import com.isamarques.autominer.client.DictionaryScraper;
 import com.isamarques.autominer.client.LangeekClient;
 import com.isamarques.autominer.dto.LangeekResponseDTO;
-import com.isamarques.autominer.entity.Sentence;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.isamarques.autominer.dto.WordData;
+import com.isamarques.autominer.dto.Sentence;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 @Service
 public class DictionaryService {
-    private static final Logger logger = LoggerFactory.getLogger(DictionaryService.class);
-    private final CambridgeScraper scraper;
+
+    private final DictionaryScraper scraper;
     private final LangeekClient langeekClient;
 
-    public DictionaryService(CambridgeScraper scraper, LangeekClient langeekClient){
+    public DictionaryService(DictionaryScraper scraper, LangeekClient langeekClient) {
         this.scraper = scraper;
         this.langeekClient = langeekClient;
     }
 
-    public Object searchWordsToMine(List<Sentence> sentencesList){
-        for(Sentence sentence : sentencesList){
-            String word = sentence.getWordToMine();
-            logger.info("Processando palavra: {}", word);
-            List<String> definitions = lookupWord(word);
-            List<String> imageUrls = lookupWordImages(word.toLowerCase().trim());
-            if(imageUrls != null && !imageUrls.isEmpty()){
+    public List<Sentence> searchWordsToMine(List<Sentence> sentences) {
+        for (Sentence sentence : sentences) {
+            String word = sentence.getWordToMine().toLowerCase().trim();
+            log.info("Processando palavra: '{}'", word);
+
+            WordData wordData = fetchFromCambridge(word);
+
+            if (!wordData.definitions().isEmpty()) {
+                sentence.setDefinition(wordData.definitions());
+            }
+
+            List<String> imageUrls = gatherImages(word, wordData.imageUrl());
+            if (!imageUrls.isEmpty()) {
                 sentence.setImageMeaningUrl(imageUrls);
             }
-            sentence.setDefinition(definitions);
         }
-        return sentencesList;
+        return sentences;
     }
 
-    public List<String> lookupWord(String word) {
-        try{
-            logger.info("Iniciando busca para a palavra: {}", word);
-            List<String> definition = scraper.fetchDefinition(word.toLowerCase().trim());
-
-            if(definition == null || definition.isEmpty()){
-                logger.warn("Definição não encontrada para a palavra: {}", word);
-                return null;
-            }
-            return definition;
-        }catch (Exception e){
-            logger.error("Erro ao realizar scraping da palavra {}: {}", word, e.getMessage());
-            return null;
-        }
-    }
-
-    public List<String> lookupWordImages(String word){
+    private WordData fetchFromCambridge(String word) {
         try {
-            logger.info("Iniciando busca de imagem para a palavra: {}", word);
-            List<String> imageUrls = new ArrayList<>();
-
-            String imageFromCambridge = scraper.fetchImageUrls(word);
-
-            if(imageFromCambridge != null){
-                imageUrls.add(imageFromCambridge);
-            }
-
-            List<LangeekResponseDTO> imagesLangeek = langeekClient.getWordImage(word);
-
-            if(imagesLangeek != null && !imagesLangeek.isEmpty()){
-                imagesLangeek.forEach(image -> {
-                    if(image != null && image.getTranslation() != null && image.getTranslation().getWordPhoto() != null){
-                        imageUrls.add(image.getTranslation().getWordPhoto().getPhoto());
-                    }
-                });
-            }
-
-            return imageUrls.isEmpty() ? null : imageUrls;
-        }catch (Exception e){
-            logger.error("Erro ao realizar scraping de imagens para a palavra {}: {}", word, e.getMessage());
-            return null;
+            return scraper.fetchWordData(word);
+        } catch (IOException e) {
+            log.error("Erro ao buscar dados do Cambridge para '{}': {}", word, e.getMessage());
+            return new WordData(List.of(), null);
         }
+    }
+
+    private List<String> gatherImages(String word, String cambridgeImageUrl) {
+        List<String> imageUrls = new ArrayList<>();
+
+        if (cambridgeImageUrl != null) {
+            imageUrls.add(cambridgeImageUrl);
+        }
+
+        try {
+            List<LangeekResponseDTO> langeekImages = langeekClient.getWordImage(word);
+            if (langeekImages != null) {
+                langeekImages.stream()
+                        .filter(img -> img != null
+                                && img.getTranslation() != null
+                                && img.getTranslation().getWordPhoto() != null)
+                        .map(img -> img.getTranslation().getWordPhoto().getPhoto())
+                        .forEach(imageUrls::add);
+            }
+        } catch (Exception e) {
+            log.error("Erro ao buscar imagens do Langeek para '{}': {}", word, e.getMessage());
+        }
+
+        return imageUrls;
     }
 }
