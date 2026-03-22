@@ -11,7 +11,7 @@ import java.util.List;
 @Slf4j
 @RestController
 @RequestMapping
-@CrossOrigin(origins = "http://localhost:3000")
+@CrossOrigin(origins = "${cors.allowed-origins}")
 public class SentenceController {
 
     private final DictionaryService dictionaryService;
